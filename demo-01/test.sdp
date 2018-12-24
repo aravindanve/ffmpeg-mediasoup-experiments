@@ -1,0 +1,36 @@
+v=0
+o=- 6091444946829790799480 0 IN IP4 127.0.0.1
+s=-
+t=0 0
+c=IN IP4 127.0.0.1
+a=group:BUNDLE audio video
+m=audio 45734 RTP/AVP 100
+a=mid:audio
+a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level
+a=sendrecv
+a=rtcp-mux
+a=rtcp-rsize
+a=rtpmap:100 opus/48000/2
+a=rtcp-fb:100 transport-cc
+a=fmtp:100 useinbandfec=1
+a=ssrc:67114388 cname:gK8e/upuYqKtfFUh
+m=video 45736 RTP/AVP 101 102
+a=mid:video
+a=extmap:2 urn:ietf:params:rtp-hdrext:toffset
+a=extmap:3 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time
+a=extmap:4 urn:3gpp:video-orientation
+a=sendrecv
+a=rtcp-mux
+a=rtcp-rsize
+a=rtpmap:101 VP8/90000
+a=rtcp-fb:101 transport-cc
+a=rtcp-fb:nack
+a=rtcp-fb:nack pli
+a=rtcp-fb:ccm fir
+a=rtcp-fb:goog-remb
+a=rtpmap:102 rtx/90000
+a=rtcp-fb:102 transport-cc
+a=fmtp:102 apt=101
+a=ssrc-group:FID 43533743 27930079
+a=ssrc:43533743 cname:gK8e/upuYqKtfFUh
+a=ssrc:27930079 cname:gK8e/upuYqKtfFUh

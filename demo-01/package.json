@@ -1,0 +1,27 @@
+{
+  "name": "webrtc-hls-demo-01",
+  "version": "1.0.0",
+  "description": "WebRTC to HLS demo",
+  "main": "server.js",
+  "scripts": {
+    "client:build": "webpack --config webpack.config.js",
+    "server:start": "node server.js",
+    "server:debug": "DEBUG=mediasoup:* nodemon server.js"
+  },
+  "author": "Aravindan Ve <aravindan.ve@outlook.com>",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.16.4",
+    "mediasoup": "^2.6.1",
+    "socket.io": "^2.2.0"
+  },
+  "devDependencies": {
+    "clean-webpack-plugin": "^1.0.0",
+    "html-webpack-plugin": "^3.2.0",
+    "mediasoup-client": "^2.4.6",
+    "socket.io-client": "^2.2.0",
+    "webpack": "^4.28.2",
+    "webpack-chunk-hash": "^0.6.0",
+    "webpack-cli": "^3.1.2"
+  }
+}
