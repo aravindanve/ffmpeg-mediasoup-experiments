@@ -56,11 +56,53 @@ module.exports = {
       }
     }
   ],
+  // ffmpeg: {
+  //   args: [
+  //     '-protocol_whitelist', 'pipe,file,crypto,udp,rtp',
+  //     '-i', '-',
+  //     '-crf', '23',
+  //     '-preset', 'fast',
+  //     '-codec:a', 'libfdk_aac',
+  //     '-ar', '48000',
+  //     '-b:a', '128k',
+  //     '-codec:v', 'libx264',
+  //     '-profile:v', 'high',
+  //     '-level', '4.2',
+  //     '-r', '29.970030',
+  //     '-b:v', '800k',
+  //     '-maxrate', '1500k',
+  //     '-bufsize', '500k',
+  //     '-vf', 'scale=w=1280:h=720:force_original_aspect_ratio=decrease',
+  //     '-flags', '+cgop', '-g', '48', '-keyint_min', '48', '-sc_threshold', '0',
+  //     '-hls_time', '4',
+  //     '-hls_list_size', '8',
+  //     '-hls_flags', 'temp_file+delete_segments'
+  //   ],
+  //   outDir: './output'
+  // },
   ffmpeg: {
     args: [
       '-protocol_whitelist', 'pipe,file,crypto,udp,rtp',
       '-i', '-',
-      '-vcodec', 'copy'
+      '-map:0', '0',
+      '-max_muxing_queue_size', '1000',
+      '-crf', '23',
+      '-preset', 'fast',
+      '-codec:a', 'libfdk_aac',
+      '-ar', '48000',
+      '-b:a', '128k',
+      '-codec:v', 'libx264',
+      '-profile:v', 'high',
+      '-level', '4.2',
+      '-r', '24',
+      '-b:v', '800k',
+      '-maxrate', '1400k',
+      '-bufsize', '600k',
+      '-vf', 'scale=w=640:h=360:force_original_aspect_ratio=decrease',
+      '-flags', '+cgop', '-g', '24', '-keyint_min', '24', '-sc_threshold', '0',
+      '-hls_time', '4',
+      '-hls_list_size', '8',
+      '-hls_flags', 'temp_file+delete_segments'
     ],
     outDir: './output'
   }

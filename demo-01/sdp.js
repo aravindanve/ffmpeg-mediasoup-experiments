@@ -10,7 +10,7 @@ module.exports = function ({
   connectionAddress = 'IN IP4 127.0.0.1',
   audioPort = 0,
   videoPort = 0,
-  profile = 'RTP/AVP'
+  profile = 'UDP/RTP/AVP'
 
 }, ...rtpParameters) {
 

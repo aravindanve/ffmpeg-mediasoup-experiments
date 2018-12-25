@@ -56,10 +56,11 @@ const generateSessionId = () => {
 };
 
 const transcoders = new Map();
-const initTranscoder = (outDir, outFile, sdp) => {
+const initTranscoder = (outDir, sdp) => {
   const ffprocess = childProcess.spawn('ffmpeg', [
     ...config.ffmpeg.args,
-    `${outDir}/${outFile}.webm`
+    '-hls_segment_filename', `${outDir}/360p_%06d.ts`,
+    `${outDir}/playlist.m3u8`
 
   ], {
     cwd: __dirname,
@@ -120,7 +121,8 @@ const initStreamer = (socket, producer) => {
     const sessionVersion = socket.ff
       ? socket.ff.sessionVersion + 1 : 0;
 
-    const outDir = `${config.ffmpeg.outDir}/${sessionId}/`;
+    const outDir = `${config.ffmpeg.outDir}/${
+      sessionId}-${sessionVersion}`;
 
     childProcess.execFile('mkdir', ['-p', outDir], {
       cwd: __dirname,
@@ -193,13 +195,10 @@ const initStreamer = (socket, producer) => {
 
           console.log('SDP:\n', sdp);
 
-          const ffprocess = initTranscoder(
-            outDir, sessionVersion, sdp);
-
           socket.ff = {
             sessionId,
             sessionVersion,
-            ffprocess
+            ffprocess: initTranscoder(outDir, sdp)
           };
         })
         .catch(err =>
