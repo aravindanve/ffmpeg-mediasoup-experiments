@@ -10,8 +10,15 @@ const config = require('./config');
 const generateSdp = require('./sdp');
 
 const cleanExit = () => {
-  console.log('\nClean Exit...');
-  process.exit(0);
+  console.log('\nReceived SIGINT or SIGTERM');
+
+  // TODO: ffmpeg doesn't exit properly
+  // it errors with `pipe:: Operation timed out`
+  // then exits with `Exiting normally, received signal 2.`
+  destroyAllTranscoders(() => {
+    console.log('Closed all transcoders, exiting...');
+    process.exit(0);
+  });
 };
 
 process.on('SIGINT', cleanExit);
@@ -41,6 +48,54 @@ const getUdpPort = cb => {
     socket.close();
     setImmediate(cb, null, address.port);
   });
+};
+
+const transcoders = new Map();
+const initTranscoder = (sessionId, sessionVersion, sdp) => {
+  const ffprocess = childProcess.spawn('ffmpeg', [
+    '-protocol_whitelist', 'pipe,file,crypto,udp,rtp',
+    '-i', '-',
+    '-vcodec', 'copy',
+    `output/${sessionId}-${sessionVersion}.webm`
+
+  ], {
+    cwd: __dirname,
+    stdio: ['pipe', process.stdout, process.stderr],
+    detached: true,
+    shell: false
+  });
+
+  transcoders.set(ffprocess, true);
+
+  ffprocess.on('error', err => {
+    console.log('FFPROCESS ERROR', err);
+  });
+
+  ffprocess.stdin.write(sdp);
+  ffprocess.stdin.end();
+  // ffprocess.unref();
+
+  return ffprocess;
+};
+
+const destroyTranscoder = ffprocess => {
+  if (transcoders.delete(ffprocess)) {
+    ffprocess.kill('SIGINT');
+  }
+};
+
+const destroyAllTranscoders = (cb) => {
+  let count = 0;
+
+  const num = transcoders.size;
+  const onExit = () => {
+    if (++count >= num) return cb();
+  };
+  for (const transcoder of transcoders.keys()) {
+    transcoder.once('exit', onExit);
+    transcoder.kill('SIGINT');
+  }
+  transcoders.clear();
 };
 
 const initStreamer = (socket, producer) => {
@@ -74,8 +129,7 @@ const initStreamer = (socket, producer) => {
       }
 
       if (socket.ff && socket.ff.ffprocess) {
-        console.log('sending SIGINT <<<<<<<<<<<<<<<<<<<<<<<<<<<<< 1');
-        socket.ff.ffprocess.kill('SIGINT');
+        destroyTranscoder(socket.ff.ffprocess);
         socket.ff.ffprocess = undefined;
       }
 
@@ -118,21 +172,8 @@ const initStreamer = (socket, producer) => {
 
       console.log('SDP:\n', sdp);
 
-      const ffprocess = childProcess.spawn('ffmpeg', [
-        '-protocol_whitelist', 'pipe,file,crypto,udp,rtp',
-        '-i', '-',
-        '-vcodec', 'copy',
-        `output/${sessionId}-${sessionVersion}.webm`
-
-      ], {
-        cwd: __dirname,
-        stdio: ['pipe', process.stdout, process.stderr],
-        detached: false,
-        shell: false
-      });
-
-      ffprocess.stdin.write(sdp);
-      ffprocess.stdin.end();
+      const ffprocess = initTranscoder(
+        sessionId, sessionVersion, sdp);
 
       socket.ff = {
         sessionId,
@@ -151,9 +192,7 @@ const clearStreamers = socket => {
     socket.ff.sessionVersion = undefined;
   }
   if (socket.ff && socket.ff.ffprocess) {
-    // TODO: exit gracefully
-    // console.log('sending SIGINT <<<<<<<<<<<<<<<<<<<<<<<<<<<<< 2');
-    // socket.ff.ffprocess.kill('SIGINT');
+    destroyTranscoder(socket.ff.ffprocess);
     socket.ff.ffprocess = undefined;
   }
   socket.streamers = undefined;
