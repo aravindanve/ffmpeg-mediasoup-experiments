@@ -38,8 +38,7 @@ module.exports = {
       name: 'opus',
       clockRate: 48000,
       channels: 2,
-      parameters:
-      {
+      parameters: {
         useinbandfec: 1
       }
     },
@@ -52,10 +51,17 @@ module.exports = {
       kind: 'video',
       name: 'H264',
       clockRate: 90000,
-      parameters:
-      {
+      parameters: {
         'packetization-mode': 1
       }
     }
-  ]
+  ],
+  ffmpeg: {
+    args: [
+      '-protocol_whitelist', 'pipe,file,crypto,udp,rtp',
+      '-i', '-',
+      '-vcodec', 'copy'
+    ],
+    outDir: './output'
+  }
 };

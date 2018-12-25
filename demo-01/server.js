@@ -50,13 +50,16 @@ const getUdpPort = cb => {
   });
 };
 
+const generateSessionId = () => {
+  return `${Date.now()}` + `${Math.floor(
+    Math.random() * 10e6)}`.padStart(7, '0');
+};
+
 const transcoders = new Map();
-const initTranscoder = (sessionId, sessionVersion, sdp) => {
+const initTranscoder = (outDir, outFile, sdp) => {
   const ffprocess = childProcess.spawn('ffmpeg', [
-    '-protocol_whitelist', 'pipe,file,crypto,udp,rtp',
-    '-i', '-',
-    '-vcodec', 'copy',
-    `output/${sessionId}-${sessionVersion}.webm`
+    ...config.ffmpeg.args,
+    `${outDir}/${outFile}.webm`
 
   ], {
     cwd: __dirname,
@@ -85,12 +88,15 @@ const destroyTranscoder = ffprocess => {
 };
 
 const destroyAllTranscoders = (cb) => {
-  let count = 0;
-
   const num = transcoders.size;
+
+  if (!num) return cb();
+
+  let count = 0;
   const onExit = () => {
     if (++count >= num) return cb();
   };
+
   for (const transcoder of transcoders.keys()) {
     transcoder.once('exit', onExit);
     transcoder.kill('SIGINT');
@@ -107,82 +113,98 @@ const initStreamer = (socket, producer) => {
       return;
     }
 
-    room.createRtpStreamer(producer, {
-      ...config.rtpStreamerOptions,
-      remotePort: port
-    })
-    .then(streamer => {
-      streamer.__port = port;
-      streamers.push(streamer);
+    const sessionId = socket.ff
+      ? socket.ff.sessionId
+      : generateSessionId();
 
-      let audioStreamer;
-      let videoStreamer;
+    const sessionVersion = socket.ff
+      ? socket.ff.sessionVersion + 1 : 0;
 
-      for (let i = 0; i < streamers.length; i++) {
-        if (audioStreamer && videoStreamer) break;
-        if (streamers[i].consumer.kind === 'audio') {
-          audioStreamer = streamers[i];
-        }
-        if (streamers[i].consumer.kind === 'video') {
-          videoStreamer = streamers[i];
-        }
+    const outDir = `${config.ffmpeg.outDir}/${sessionId}/`;
+
+    childProcess.execFile('mkdir', ['-p', outDir], {
+      cwd: __dirname,
+      shell: false
+
+    }, err => {
+      if (err) {
+        console.log('(mkdir) ERROR', err);
+        return;
       }
 
-      if (socket.ff && socket.ff.ffprocess) {
-        destroyTranscoder(socket.ff.ffprocess);
-        socket.ff.ffprocess = undefined;
-      }
+      room.createRtpStreamer(producer, {
+        ...config.rtpStreamerOptions,
+        remotePort: port
+      })
+        .then(streamer => {
+          streamer.__port = port;
+          streamers.push(streamer);
 
-      const sessionId = (socket.ff && socket.ff.sessionId) ||
-        `${Date.now()}${Math.round(Math.random() * 10e6)}`;
-      const sessionVersion = (socket.ff && 'sessionVersion' in socket.ff)
-        ? ++socket.ff.sessionVersion : 0;
-      const rtpParameters = [];
+          let audioStreamer;
+          let videoStreamer;
 
-      let audioPort;
-      let videoPort;
+          for (let i = 0; i < streamers.length; i++) {
+            if (audioStreamer && videoStreamer) break;
+            if (streamers[i].consumer.kind === 'audio') {
+              audioStreamer = streamers[i];
+            }
+            if (streamers[i].consumer.kind === 'video') {
+              videoStreamer = streamers[i];
+            }
+          }
 
-      if (audioStreamer) {
-        audioPort = audioStreamer.__port;
-        rtpParameters.push(audioStreamer.consumer.rtpParameters);
-      }
+          if (socket.ff && socket.ff.ffprocess) {
+            destroyTranscoder(socket.ff.ffprocess);
+            socket.ff.ffprocess = undefined;
+          }
 
-      if (videoStreamer) {
-        videoPort = videoStreamer.__port;
-        rtpParameters.push(videoStreamer.consumer.rtpParameters);
-      }
+          const rtpParameters = [];
 
-      console.log({
-        sessionId,
-        sessionVersion,
-        streams: rtpParameters.length,
-        audioPort,
-        videoPort
-      });
-      console.log('rtpParameters', rtpParameters);
+          let audioPort;
+          let videoPort;
 
-      // (re)generate sdp
-      const sdp = generateSdp({
-        sessionId,
-        sessionVersion,
-        audioPort,
-        videoPort,
+          if (audioStreamer) {
+            audioPort = audioStreamer.__port;
+            rtpParameters.push(audioStreamer.consumer.rtpParameters);
+          }
 
-      }, ...rtpParameters);
+          if (videoStreamer) {
+            videoPort = videoStreamer.__port;
+            rtpParameters.push(videoStreamer.consumer.rtpParameters);
+          }
 
-      console.log('SDP:\n', sdp);
+          console.log('rtp', {
+            sessionId,
+            sessionVersion,
+            streams: rtpParameters.length,
+            audioPort,
+            videoPort
+          });
+          console.log('rtpParameters', rtpParameters);
 
-      const ffprocess = initTranscoder(
-        sessionId, sessionVersion, sdp);
+          // (re)generate sdp
+          const sdp = generateSdp({
+            sessionId,
+            sessionVersion,
+            audioPort,
+            videoPort,
 
-      socket.ff = {
-        sessionId,
-        sessionVersion,
-        ffprocess
-      };
-    })
-    .catch(err =>
-      console.log('(streamer) ERROR', err));
+          }, ...rtpParameters);
+
+          console.log('SDP:\n', sdp);
+
+          const ffprocess = initTranscoder(
+            outDir, sessionVersion, sdp);
+
+          socket.ff = {
+            sessionId,
+            sessionVersion,
+            ffprocess
+          };
+        })
+        .catch(err =>
+          console.log('(streamer) ERROR', err));
+    });
   });
 };
 
