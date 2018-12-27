@@ -1,7 +1,7 @@
 {
-  "name": "webrtc-hls-demo-01",
+  "name": "webrtc-hls-01",
   "version": "1.0.0",
-  "description": "WebRTC to HLS demo",
+  "description": "WebRTC to HLS experiment",
   "main": "server.js",
   "scripts": {
     "client:build": "webpack --config webpack.config.js",
