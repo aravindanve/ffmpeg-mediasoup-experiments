@@ -7,17 +7,6 @@ module.exports = {
   ioOptions: {
     serveClient: false
   },
-  udpSocketType: 'udp4',
-  udpSocketOptions: {
-    address: 'localhost',
-    port: 9002,
-    exclusive: true
-  },
-  udpSocketOptions: {
-    address: 'localhost',
-    port: 9002,
-    exclusive: true
-  },
   mediaServerOptions: {
     numWorkers: null,
     rtcIPv4: true,

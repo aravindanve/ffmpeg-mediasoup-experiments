@@ -42,7 +42,7 @@ const room = mediaServer.Room(config.mediaCodecs);
 const NOOP = () => {};
 
 const getUdpPort = cb => {
-  const socket = createUdpSocket(config.udpSocketType);
+  const socket = createUdpSocket('udp4');
 
   socket.bind(err => {
     if (err) return cb(err);
