@@ -29,8 +29,12 @@ const serverOptions = {
   cert: fs.readFileSync(path.resolve(config.tlsCertFile))
 };
 
-const staticListener = express().use(express.static(config.staticDir));
-const httpsServer = createHttpsServer(serverOptions, staticListener);
+const app = express();
+
+app.use('/manifests', express.static(config.ffmpeg.outDir));
+app.use(express.static(config.staticDir));
+
+const httpsServer = createHttpsServer(serverOptions, app);
 const mediaServer = createMediaServer(config.mediaServerOptions);
 const io = createIO(httpsServer, config.ioOptions);
 const room = mediaServer.Room(config.mediaCodecs);
@@ -121,8 +125,8 @@ const initStreamer = (socket, producer) => {
     const sessionVersion = socket.ff
       ? socket.ff.sessionVersion + 1 : 0;
 
-    const outDir = `${config.ffmpeg.outDir}/${
-      sessionId}-${sessionVersion}`;
+    const outDirSession = `${sessionId}-${sessionVersion}`;
+    const outDir = `${config.ffmpeg.outDir}/${outDirSession}`;
 
     childProcess.execFile('mkdir', ['-p', outDir], {
       cwd: __dirname,
@@ -200,6 +204,10 @@ const initStreamer = (socket, producer) => {
             sessionVersion,
             ffprocess: initTranscoder(outDir, sdp)
           };
+
+          socket.emit(
+            'hlsurl',
+            `/manifests/${outDirSession}/playlist.m3u8`);
         })
         .catch(err =>
           console.log('(streamer) ERROR', err));

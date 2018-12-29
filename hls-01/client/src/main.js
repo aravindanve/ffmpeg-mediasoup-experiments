@@ -5,16 +5,135 @@ const body = document.querySelector('body');
 const room = new mediasoupClient.Room();
 const socket = ioClient('/');
 
-let recvTransport;
-let sendTransport;
-let peerName;
-let publishButton;
-let publishing = false;
+const Hls = require('hls.js');
 
-let videoElementCount = 0;
+let lastHlsUrl;
+
+function onHlsUrlReady(url, listener) {
+  lastHlsUrl = url;
+  const checkHlsUrl = () => fetch(url)
+    .then(res => {
+      if (url !== lastHlsUrl) return;
+      if (res.status === 200) {
+        listener();
+
+      } else {
+        console.log('checking hls url status again in 3s');
+        setTimeout(() => checkHlsUrl(), 3000);
+      }
+    })
+    .catch(err => console.error(err));
+
+  checkHlsUrl();
+}
+
+let setHlsUrl;
+
+(function setupHlsPlayer() {
+  let video;
+  let hlsUrl;
+  let loadHls;
+  let unloadHls;
+  if (Hls.isSupported()) {
+    video = document.createElement('video');
+
+    loadHls = () => {
+      if (!hlsUrl) return;
+
+      const hls = new Hls();
+
+      hls.attachMedia(video);
+      hls.loadSource(hlsUrl);
+      hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        console.log('hls:MANIFEST_PARSED');
+        video.play();
+      });
+
+      video.__hls = hls;
+    };
+
+    unloadHls = () => {
+      if (!video.__hls) return;
+      video.__hls.detachMedia();
+      video.__hls = undefined;
+    };
+
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video = document.createElement('video');
+
+    let handleLoadedMetadata = () => {
+      console.log('hls:loadedmetadata');
+      video.play();
+    };
+
+    loadHls = () => {
+      if (!hlsUrl) return;
+      video.src = hlsUrl;
+      video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+
+    unloadHls = () => {
+      video.src = null;
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+
+  } else {
+    console.warn('hls not supported');
+    return;
+  }
+
+  video.style.display = 'block';
+  video.style.width = '100%';
+  video.style.height = '320px';
+  video.style.backgroundColor = '#000';
+  video.style.display = 'none';
+
+  const hlsToggle = document.createElement('button');
+  let hlsPlayerShown = false;
+
+  hlsToggle.innerText = 'Show HLS Player';
+  hlsToggle.onclick = () => {
+    if (hlsPlayerShown) {
+      unloadHls();
+      video.style.display = 'none';
+      hlsToggle.innerText = 'Show HLS Player';
+      hlsPlayerShown = false;
+
+    } else {
+      loadHls();
+      video.style.display = '';
+      hlsToggle.innerText = 'Hide HLS Player';
+      hlsPlayerShown = true;
+    }
+  };
+
+  setHlsUrl = url => {
+    if (url) {
+      onHlsUrlReady(url, () => {
+        console.log('hls:url ready');
+        hlsUrl = url;
+        if (hlsPlayerShown && hlsUrl) {
+          loadHls();
+        }
+      });
+
+    } else {
+      hlsUrl = undefined;
+    }
+  };
+
+  document.body.childNodes.length
+    ? document.body.insertBefore(video, document.body.childNodes[0])
+    : document.body.appendChild(video);
+
+  document.body.insertBefore(hlsToggle, video);
+})();
+
+let lastVideoElementId = 0;
+
 function createVideoElement(remote = true, kind = 'audio') {
   const element = document.createElement('video');
-  element.id = `video${++videoElementCount}_${remote ? 'remote' : 'local'}`;
+  element.id = `video${++lastVideoElementId}_${remote ? 'remote' : 'local'}`;
   element.class = remote ? 'remote' : 'local';
   element.style = kind === 'video'
     ? (remote ? 'height: 720px;' : 'height: 120px;')
@@ -107,6 +226,12 @@ function cancelPlay(element) {
 
   return true;
 }
+
+let recvTransport;
+let sendTransport;
+let peerName;
+let publishButton;
+let publishing = false;
 
 function handleConsumer(consumer) {
   console.log('handleConsumer', consumer);
@@ -240,16 +365,21 @@ socket.on('notification', payload => {
   room.receiveNotification(payload);
 });
 
+socket.on('peername', payload => {
+  console.log('socket:peername', payload);
+  peerName = payload;
+  safeJoinRoom();
+});
+
+socket.on('hlsurl', payload => {
+  console.log('socket:hlsurl', payload);
+  setHlsUrl && setHlsUrl(payload);
+});
+
 socket.on('connect', () => {
   console.log('socket connected');
 });
 
 socket.on('connect_error', err => {
   console.error('socket connect error', err);
-});
-
-socket.on('peername', payload => {
-  console.log('socket:peername', payload);
-  peerName = payload;
-  safeJoinRoom();
 });

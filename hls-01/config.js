@@ -58,12 +58,12 @@ module.exports = {
   ],
   ffmpeg: {
     args: [
-      // latency: ~32s on localhost
+      // latency: ~7-10s on localhost
       '-debug', 'pict',
       '-protocol_whitelist', 'pipe,file,crypto,udp,rtp',
       '-i', '-',
       '-map:0', '0',
-      // '-max_muxing_queue_size', '1000',
+      '-max_muxing_queue_size', '1000',
       '-crf', '23',
       '-preset', 'fast',
       '-codec:a', 'libfdk_aac',
